@@ -28,8 +28,12 @@ jobs:
       - name: Build
         # The version comes from the tag, so gradle.properties (which upstream edits every
         # release) stays untouched on our branch.
+        # The root build reads changelog/<version>.md (for its Hangar page), so give our version
+        # the base release's changelog.
         run: |
           chmod +x gradlew
+          base="${TAG%-dungeons.*}"
+          if [ -f "changelog/$base.md" ]; then cp "changelog/$base.md" "changelog/$TAG.md"; else touch "changelog/$TAG.md"; fi
           ./gradlew :platform:bettermodel-paper:shadowJar \
             :bettermodel-api:jar :bettermodel-api:bettermodel-bukkit-api:jar \
             -Pproject_version="$TAG" --stacktrace

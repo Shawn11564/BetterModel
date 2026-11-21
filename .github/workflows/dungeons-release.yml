@@ -1,6 +1,6 @@
 # Builds our BetterModel (the `dungeons` branch) and attaches the jars to a GitHub Release.
-# Push a tag named <project_version>-dungeons.<n>, e.g. 3.7.2-dungeons.1, where project_version is
-# upstream's (gradle.properties) at the commit we're built on. See DUNGEONS.md.
+# Push a tag named <upstream release>-dungeons.<n>, e.g. 3.7.1-dungeons.2, on a `dungeons` branch
+# that sits on that upstream release tag. See DUNGEONS.md.
 # The dungeons project's runServer downloads the paper jar from that release (betterModelRelease).
 name: Dungeons release
 
@@ -28,15 +28,14 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
       - name: Check the tag
+        # We only build on upstream's official releases: the branch must sit on the release tag
+        # named in the tag, with no later upstream (unreleased) commits in it.
         shell: bash
         run: |
           set -euo pipefail
-          version=$(sed -n 's/^project_version=//p' gradle.properties | tr -d '\r')
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-          case "$TAG" in
-            "$version"-dungeons.*) ;;
-            *) echo "::error::Tag '$TAG' must be '$version-dungeons.<n>' (project_version is $version)."; exit 1 ;;
-          esac
+          git fetch --quiet --tags "$UPSTREAM" v3
+          bash .github/check-dungeons-base.sh "$TAG" HEAD FETCH_HEAD
+          echo "VERSION=${TAG%-dungeons.*}" >> "$GITHUB_ENV"
       - name: Build
         # The version comes from the tag, so gradle.properties (which upstream edits every
         # release) stays untouched on our branch. The root build reads changelog/<version>.md
@@ -55,19 +54,11 @@ jobs:
           test -s "$paper"
           api=(api/build/libs/bettermodel-api-"$TAG".jar api/bukkit-api/build/libs/bettermodel-bukkit-api-"$TAG".jar)
           for f in "${api[@]}"; do test -s "$f"; done
-          # The upstream commit we're built on: the newest one of upstream's v3 in our history.
-          git fetch --quiet --tags "$UPSTREAM" v3
-          base=$(git merge-base HEAD FETCH_HEAD)
-          short=$(git rev-parse --short "$base")
-          if release=$(git describe --tags --exact-match "$base" 2>/dev/null); then
-            on="upstream release $release"
-          else
-            on="upstream v3 at $short ($VERSION in development, after $(git describe --tags --abbrev=0 "$base"))"
-          fi
+          base=$(git rev-parse "$VERSION^{commit}")
           {
-            echo "BetterModel built on $on, with the dungeons changes on top."
+            echo "BetterModel built on upstream release $VERSION, with the dungeons changes on top."
             echo
-            echo "Upstream commit: https://github.com/toxicity188/BetterModel/commit/$base"
+            echo "Upstream release: https://github.com/toxicity188/BetterModel/releases/tag/$VERSION"
             echo
             echo "Our changes:"
             changes=$(git log --no-merges --format='- %s' "$base..HEAD" -- . ':(exclude).github' ':(exclude)DUNGEONS.md')

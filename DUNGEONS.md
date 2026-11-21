@@ -4,8 +4,10 @@ This is the dungeons server's copy of [toxicity188/BetterModel](https://github.c
 
 ## Branches
 
-- `v3` is an exact copy of upstream's `v3`. Never commit to it. Update it with GitHub's
-  "Sync fork" button or `gh repo sync Shawn11564/BetterModel -b v3`.
+- Upstream is tracked through the `upstream` remote (`git remote add upstream
+  https://github.com/toxicity188/BetterModel.git`), not by syncing this fork's `v3`. Leave `v3`
+  alone and don't press "Sync fork": a push to `v3` here starts upstream's publishing workflows
+  (see CI below).
 - `dungeons` is our changes, as a few commits on top of the latest upstream **release tag**
   (currently 3.7.1). Commit fixes and features here.
 
@@ -41,9 +43,17 @@ Push the upstream tag too: the release notes list the commits since it.
 
 ## CI
 
-Upstream's `package.yml`, `publish.yml` and `release.yml` are disabled in this fork (they publish
-to Hangar, Modrinth, Maven Central and GitHub Packages under upstream's tokens). Leave them
-disabled; only `dungeons-release.yml` and `pr-test.yml` run here.
+Upstream's `package.yml`, `publish.yml` and `release.yml` publish to Hangar, Modrinth, Maven
+Central and GitHub Packages. They only start on a push to `v3`/`master`/`v2` or a release
+published by hand (our workflow's release is made with `GITHUB_TOKEN`, which starts no
+workflows), so normally they never run here. GitHub can't disable a workflow before its first
+run; if one ever runs, disable all three:
+
+```sh
+for w in package.yml publish.yml release.yml; do gh workflow disable $w -R Shawn11564/BetterModel; done
+```
+
+Only `dungeons-release.yml` (and `pr-test.yml`, on pull requests) should run here.
 
 Building locally: `gradlew :platform:bettermodel-paper:shadowJar -Pproject_version=<version>`.
 The first build sets up a Minecraft server for each of the 8 supported versions, which takes a
